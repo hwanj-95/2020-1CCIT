@@ -21,11 +21,11 @@ int main(int argc, char* argv[]) {
     struct libnet_ethernet_hdr* eth;
     struct libnet_ipv4_hdr* ip;
     struct libnet_tcp_hdr* tcp;
-    int ethl; // Eth len
+
     int iphl; // IP header len
-    int totl; // IP total len
+    //int totl; // IP total len
     int tcphl; // tcp header len
-    int payload;
+    //int payload;
 
 
     char* dev = argv[1];
@@ -51,13 +51,13 @@ int main(int argc, char* argv[]) {
                 packet = packet+14;
                 ip = (struct libnet_ipv4_hdr* )packet;
                 iphl = (ip->ip_hl)*4; // ip header len
-                totl = ntohs(ip->ip_len); // total len
+                //totl = ntohs(ip->ip_len); // total len
 
 
                 packet = packet + iphl;
                 tcp = (struct libnet_tcp_hdr* )packet;
                 tcphl = (tcp->th_off)*4;
-                payload = totl - iphl - tcphl;
+                //payload = totl - iphl - tcphl;
 
 
                 if(ip->ip_p == 0x06){
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
                 printf("       Data\n");
 
                 for(int i = 0; i<16; i++){
-                     printf("%p |", packet[14+iphl+tcphl]+i);
+                     printf("%02x ", packet[14+iphl+tcphl]+i);
                     }
                 printf("---------------------------");
                 }
