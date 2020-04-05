@@ -1,9 +1,10 @@
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <netinet/in.h>
+#include <netinet/in.h> //ipv4 ip_addr
 #include "net.h"
-#define data 16
+#include <arpa/inet.h> // inet_ntoa > net add change
+#include <netinet/tcp.h>
 
 void usage() {
     printf("syntax: pcap-test <interface>\n");
@@ -20,6 +21,12 @@ int main(int argc, char* argv[]) {
     struct libnet_ethernet_hdr* eth;
     struct libnet_ipv4_hdr* ip;
     struct libnet_tcp_hdr* tcp;
+    int ethl; // Eth len
+    int iphl; // IP header len
+    int totl; // IP total len
+    int tcphl; // tcp header len
+    int payload;
+
 
     char* dev = argv[1];
     char errbuf[PCAP_ERRBUF_SIZE];
@@ -32,15 +39,29 @@ int main(int argc, char* argv[]) {
     while(true) {
        struct pcap_pkthdr* header;
        const u_char* packet; //packet start point
-       eth = (struct libnet_ethernet_hdr* )packet;
-       ip = (struct libnet_ipv4_hdr* )packet;
-       tcp = (struct libnet_tcp_hdr* )packet;
        int res = pcap_next_ex(handle, &header, &packet);
             if (res == 0) continue;
                 if (res == -1 || res == -2) {
                     printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
                     break;
                 }
+
+                eth = (struct libnet_ethernet_hdr* )packet;
+
+                packet = packet+14;
+                ip = (struct libnet_ipv4_hdr* )packet;
+                iphl = (ip->ip_hl)*4; // ip header len
+                totl = ntohs(ip->ip_len); // total len
+
+
+                packet = packet + iphl;
+                tcp = (struct libnet_tcp_hdr* )packet;
+                tcphl = (tcp->th_off)*4;
+                payload = totl - iphl - tcphl;
+
+
+                if(ip->ip_p == 0x06){
+
                 printf("       Ethernet Header\n");
                 printf("src mac : %02x:%02x:%02x:%02x:%02x:%02x\n",
                     eth->ether_shost[0],eth->ether_shost[1],
@@ -54,25 +75,26 @@ int main(int argc, char* argv[]) {
                 printf("\n\n");
                 /////////////////////////////////////////////////////
                 printf("       IP Header\n");
-                printf("src IP : %s\n", ip ->ip_src);
-                printf("dst IP : %s\n", ip ->ip_dst);
+                printf("src IP : %s\n", inet_ntoa(ip ->ip_src)); //net byte order > host byte order
+                printf("dst IP : %s\n", inet_ntoa(ip ->ip_dst));
                 printf("---------------------------");
                 printf("\n\n");
                 ///////////////////////////////////////////////////////
                 printf("       TCP Header\n");
-                printf("src port : %d\n", tcp->th_sport);
-                printf("dst port : %d\n", tcp->th_dport);
+                printf("src port : %d\n", ntohs(tcp->th_sport)); //ntohs 2byte ntohl 4byte
+                printf("dst port : %d\n", ntohs(tcp->th_dport));
                 printf("---------------------------");
-                printf("\n\n");
-                //////////////////////////////////////////////////////
+                printf("\n");
                 printf("       Data\n");
-                for(int i=0; i<data; i++){
-                    printf("%p", packet);
-                }
+
+                for(int i = 0; i<16; i++){
+                     printf("%p |", packet[14+iphl+tcphl]+i);
+                    }
                 printf("---------------------------");
+                }
                 printf("\n\n");
 
-
+                //////////////////////////////////////////////////////
             }
     pcap_close(handle);
 }
